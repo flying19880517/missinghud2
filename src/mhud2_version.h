@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 //         limitations under the License.
 
-#ifndef MISSINGHUD2_WINRESOURCES_H
-#define MISSINGHUD2_WINRESOURCES_H
+#ifndef MISSINGHUD2_VERSION_H
+#define MISSINGHUD2_VERSION_H
 
-#include <winver.h>
+#define MHUD2_VERSION               "v1.4.4"
 
-#define APP_ICON 1000
+#define MHUD2_MAJOR_VERSION         1
+#define MHUD2_MINOR_VERSION         4
+#define MHUD2_REVISION_VERSION      4
 
-#endif //MISSINGHUD2_WINRESOURCES_H
+#endif //MISSINGHUD2_VERSION_H

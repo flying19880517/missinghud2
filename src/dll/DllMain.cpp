@@ -17,10 +17,10 @@
 #include <windows.h>
 
 #include "IATHook.h"
-#include "RebirthMemReader.h"
+#include "MemReader.h"
 #include "GDISwapBuffers.h"
 #include "ResourceLoader.h"
-#include "src/MHUD_MsgQueue.h"
+#include "DLLPreferences.h"
 
 #define DLL_PUBLIC __declspec(dllexport)
 
@@ -43,12 +43,14 @@ extern "C" DLL_PUBLIC void MHUD2_Start()
         QUEUE_LOG(mhud2::Log::LOG_INFO, "MissingHUD2 injected and starting.");
 
         // Initialize any static objects we require that don't involve an OpenGL context
+        DLLPreferences::GetInstance();
         ResourceLoader::Initialize(dll_handle);
-        RebirthMemReader::GetMemoryReader();
+        MemReader::GetMemoryReader();
 
         // Hook the OpenGL SwapBuffers function via IAT redirection
         GDISwapBuffers *gdi_swapbuffers = GDISwapBuffers::GetInstance();
-        IATHook::InitIATHook(GetModuleHandle(ISAAC_MODULE_NAME), "gdi32.dll", "SwapBuffers", (LPVOID)&gdiSwapBuffersDetour);
+        IATHook::InitIATHook(GetModuleHandleW(WCHAR_ISAAC_MODULE_NAME), "gdi32.dll", "SwapBuffers",
+                             (LPVOID)&gdiSwapBuffersDetour);
 
         // Enable the IAT hooks
         IATHook::EnableIATHook("SwapBuffers", (LPVOID*)gdi_swapbuffers->GetEndpointAddr());
@@ -82,10 +84,11 @@ extern "C" DLL_PUBLIC void MHUD2_Stop()
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
         // Clean-up global static objects
+        DLLPreferences::Destroy();
         GDISwapBuffers::Destroy();
         ResourceLoader::Destroy();
-        RebirthMemReader::Destroy();
-        MHUD::MsgQueue::Destroy();
+        MemReader::Destroy();
+        MHUD::MsgQueue::Destroy(MSG_QUEUE_DLL_TO_APP);
     }
     catch (std::runtime_error &e)
     {
@@ -114,9 +117,8 @@ BOOL WINAPI gdiSwapBuffersDetour(HDC hdc)
         {
             frame_failed = true;
 
-            // We use the raw Win32 API to create the stop thread as using the C++ variant (std::thread) results
-            // in Rebirth crashing (this isn't our programs thread)
-            CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)&MHUD2_Stop, NULL, 0, NULL);
+            std::thread mhud_stop = std::thread(MHUD2_Stop);
+            mhud_stop.detach();
         }
     }
 

@@ -12,27 +12,38 @@
 // See the License for the specific language governing permissions and
 //         limitations under the License.
 
-#ifndef MISSINGHUD2_MHUD_ERROR_H
-#define MISSINGHUD2_MHUD_ERROR_H
+#ifndef MISSINGHUD2_DLLPREFERENCES_H
+#define MISSINGHUD2_DLLPREFERENCES_H
 
-#include <stdexcept>
+#include <thread>
+#include <chrono>
 
-class MHUD_Error : public std::exception
+#include "../MHUD_Options.h"
+#include "../MHUD_MsgQueue.h"
+
+class DLLPreferences
 {
 public:
-    inline MHUD_Error(std::wstring error_msg)
-    {
-        err_msg_ = error_msg;
-    };
+    static DLLPreferences * GetInstance();
+    static void Destroy();
 
-    inline std::wstring get_error()
+    MHUD::Prefs GetPrefs()
     {
-        return err_msg_;
+        return current_prefs_;
     };
 
 private:
-    std::wstring err_msg_;
+    DLLPreferences();
+    ~DLLPreferences();
+
+    void MsgMonitor();
+
+private:
+    static DLLPreferences *instance_;
+
+    bool quit_monitoring_ = false;
+    std::thread monitor_thread_;
+    MHUD::Prefs current_prefs_;
 };
 
-
-#endif //MISSINGHUD2_MHUD_ERROR_H
+#endif //MISSINGHUD2_DLLPREFERENCES_H

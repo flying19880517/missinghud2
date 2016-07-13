@@ -27,10 +27,10 @@
 
 #include "ui_LoaderGUI.h"
 #include "BoIInjector.h"
+#include "MHUD_Options.h"
+#include "mhud2_version.h"
 
-#define MHUD2_VERSION L"v1.2.4"
-
-Q_DECLARE_METATYPE(std::wstring);
+Q_DECLARE_METATYPE(std::string);
 
 class LoaderGUI : public QMainWindow
 {
@@ -40,14 +40,23 @@ public:
     LoaderGUI(QWidget *parent = 0);
 
     void ConnectSlots(BoIInjector &injector);
+    void UpdatePrefs(MHUD::Prefs mhud_prefs);
+
+signals:
+    void NewPrefs(MHUD::Prefs mhud_prefs);
+
+public slots:
+    void RunSteamIsaac(bool checked = false);
 
 protected:
     void showEvent(QShowEvent *event);
 
 private slots:
     void CheckForUpdates(bool checked = false);
+    void SavePreferences(bool checked = false);
+    void ResetPreferences(bool checked = false);
     void OnInjectionStatusChange(InjectStatus s);
-    void OnFatalError(std::wstring err_msg);
+    void OnFatalError(std::string err_msg);
     void OnUpdateResponse(QNetworkReply* response);
 
 private:

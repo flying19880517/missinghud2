@@ -29,15 +29,24 @@
 #include "TextRenderer.h"
 #include "ResourceLoader.h"
 #include "ShaderProgram.h"
+#include "DLLPreferences.h"
 #include <res/DllResources.h>
+
+#define SHOW_AS_PERCENTAGE  true
+#define NO_RECENT_STAT_CHANGES_I   0
+#define NO_RECENT_STAT_CHANGES_F   0.0
 
 enum MHUDSTAT {
     kStat_Speed,
     kStat_Range,
     kStat_FireRate,
     kStat_ShotSpeed,
+    kStat_ShotHeight,
     kStat_Damage,
     kStat_Luck,
+    kStat_DealDoorChance,
+    kStat_TearsFired,
+    kStat_DealWithAngel,
     kStat_DealWithDevil
 };
 
@@ -46,8 +55,12 @@ static const std::string MHUD2STAT_STRING[] = {
     "range",
     "firerate",
     "shotspeed",
+    "shotheight",
     "damage",
     "luck",
+    "deal_door_chance",
+    "tears_fired",
+    "deal_with_angel",
     "deal_with_devil"
 };
 

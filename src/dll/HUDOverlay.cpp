@@ -32,6 +32,37 @@ void HUDOverlay::Destroy()
     instance_ = nullptr;
 }
 
+VIEWSIZE HUDOverlay::GetViewportSize()
+{
+    // Check viewport size every 2 seconds (to avoid spamming glGetIntegerv)
+    if ((viewport_size_.width != 0 || viewport_size_.height != 0) &&
+        (viewport_updated_ > std::chrono::system_clock::now() - std::chrono::milliseconds(2000)))
+        return viewport_size_;
+
+    GLint viewport_vals[4] = { 0 };
+    glGetIntegerv(GL_VIEWPORT, viewport_vals);
+    int viewport_width = viewport_vals[2];
+    int viewport_height = viewport_vals[3];
+
+    viewport_size_ = VIEWSIZE(viewport_width, viewport_height);
+    viewport_updated_ = std::chrono::system_clock::now();
+
+    return viewport_size_;
+}
+
+float HUDOverlay::GetHUDSizeMultiplier()
+{
+    VIEWSIZE vp_size = HUDOverlay::GetViewportSize();
+    float hud_scale = 1.0f;
+    if (vp_size.height <= 720 || vp_size.width <= 1200)
+        return hud_scale;
+
+    float scale_height = 0.5f * std::ceil((vp_size.height - 720 + 1) / 240.0f);
+    float scale_width = 0.5f * std::ceil((vp_size.width - 1200 + 1) / 400.0f);
+
+    return hud_scale + std::min(scale_height, scale_width);
+}
+
 HUDOverlay::HUDOverlay()
 {
     SpriteSheet::LoadSpriteSheet(MHUD2_STAT_ICONS, MHUD2_STAT_ICONS_TEXMAP, SPRITESIZE(32, 32), true);
@@ -49,46 +80,84 @@ HUDOverlay::~HUDOverlay()
 void HUDOverlay::DrawHUD(HDC hdc)
 {
     // Get the Rebirth memory reader to get the HUD stat values
-    RebirthMemReader *mem_reader = RebirthMemReader::GetMemoryReader();
+    MemReader *mem_reader = MemReader::GetMemoryReader();
     if (!mem_reader->IsRunActive())
         return; // We don't want to draw the HUD if the player isn't in a Rebirth run
 
     // Draw the HUD stats info bar
     glm::vec2 base_hud_stats_menu;
-    base_hud_stats_menu.x = -0.98f;
-    base_hud_stats_menu.y = 0.2f;
+    base_hud_stats_menu.x = 0.0f;
+
+    VIEWSIZE vp_size = GetViewportSize();
+    base_hud_stats_menu.y = (vp_size.height / 24) * 15;
+
+    // Show the actual HUD stats
+    if (DLLPreferences::GetInstance()->GetPrefs().show_tears_fired)
+    {
+        HUDStat tears_fired_stat(MHUDSTAT::kStat_TearsFired);
+        tears_fired_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStati(PlayerStat::kTearsFired),
+                              NO_RECENT_STAT_CHANGES_I);
+
+        base_hud_stats_menu.y -= (25.0f * GetHUDSizeMultiplier());
+    }
 
     HUDStat speed_stat(MHUDSTAT::kStat_Speed);
-    speed_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(RebirthPlayerStat::kSpeed),
-                    mem_reader->GetPlayerRecentStatChangef(RebirthPlayerStat::kSpeed));
+    speed_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(PlayerStat::kSpeed),
+                    mem_reader->GetPlayerRecentStatChangef(PlayerStat::kSpeed));
 
-    base_hud_stats_menu.y -= 0.1f;
+    base_hud_stats_menu.y -= (25.0f * GetHUDSizeMultiplier());
     HUDStat range_stat(MHUDSTAT::kStat_Range);
-    range_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(RebirthPlayerStat::kRange),
-                    mem_reader->GetPlayerRecentStatChangef(RebirthPlayerStat::kRange));
+    range_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(PlayerStat::kRange),
+                    mem_reader->GetPlayerRecentStatChangef(PlayerStat::kRange));
 
-    base_hud_stats_menu.y -= 0.1f;
+    base_hud_stats_menu.y -= (25.0f * GetHUDSizeMultiplier());
     HUDStat firerate_stat(MHUDSTAT::kStat_FireRate);
-    firerate_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStati(RebirthPlayerStat::kTearsDelay),
-                       mem_reader->GetPlayerRecentStatChangei(RebirthPlayerStat::kTearsDelay));
+    firerate_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStati(PlayerStat::kTearsDelay),
+                       mem_reader->GetPlayerRecentStatChangei(PlayerStat::kTearsDelay));
 
-    base_hud_stats_menu.y -= 0.1f;
+    base_hud_stats_menu.y -= (25.0f * GetHUDSizeMultiplier());
     HUDStat shotspeed_stat(MHUDSTAT::kStat_ShotSpeed);
-    shotspeed_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(RebirthPlayerStat::kShotSpeed),
-                        mem_reader->GetPlayerRecentStatChangef(RebirthPlayerStat::kShotSpeed));
+    shotspeed_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(PlayerStat::kShotSpeed),
+                        mem_reader->GetPlayerRecentStatChangef(PlayerStat::kShotSpeed));
 
-    base_hud_stats_menu.y -= 0.1f;
+    if (DLLPreferences::GetInstance()->GetPrefs().show_shot_height)
+    {
+        base_hud_stats_menu.y -= (25.0f * GetHUDSizeMultiplier());
+        HUDStat shot_height_stat(MHUDSTAT::kStat_ShotHeight);
+        shot_height_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(PlayerStat::kShotHeight),
+                              mem_reader->GetPlayerRecentStatChangef(PlayerStat::kShotHeight));
+    }
+
+    base_hud_stats_menu.y -= (25.0f * GetHUDSizeMultiplier());
     HUDStat damage_stat(MHUDSTAT::kStat_Damage);
-    damage_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(RebirthPlayerStat::kDamage),
-                     mem_reader->GetPlayerRecentStatChangef(RebirthPlayerStat::kDamage));
+    damage_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(PlayerStat::kDamage),
+                     mem_reader->GetPlayerRecentStatChangef(PlayerStat::kDamage));
 
-    base_hud_stats_menu.y -= 0.1f;
+    base_hud_stats_menu.y -= (25.0f * GetHUDSizeMultiplier());
     HUDStat luck_stat(MHUDSTAT::kStat_Luck);
-    luck_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(RebirthPlayerStat::kLuck),
-                   mem_reader->GetPlayerRecentStatChangef(RebirthPlayerStat::kLuck));
+    luck_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(PlayerStat::kLuck),
+                   mem_reader->GetPlayerRecentStatChangef(PlayerStat::kLuck));
 
-    base_hud_stats_menu.y -= 0.1f;
-    HUDStat dwd_stat(MHUDSTAT::kStat_DealWithDevil);
-    dwd_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(RebirthPlayerStat::kDealWithDevil),
-                  mem_reader->GetPlayerRecentStatChangef(RebirthPlayerStat::kDealWithDevil), true);
+    if (DLLPreferences::GetInstance()->GetPrefs().split_deal_chance)
+    {
+        base_hud_stats_menu.y -= (25.0f * GetHUDSizeMultiplier());
+        HUDStat dwd_stat(MHUDSTAT::kStat_DealWithDevil);
+        dwd_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(PlayerStat::kDealWithDevil),
+                      mem_reader->GetPlayerRecentStatChangef(PlayerStat::kDealWithDevil), SHOW_AS_PERCENTAGE);
+
+        base_hud_stats_menu.y -= (25.0f * GetHUDSizeMultiplier());
+        HUDStat dwa_stat(MHUDSTAT::kStat_DealWithAngel);
+        dwa_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(PlayerStat::kDealWithAngel),
+                      mem_reader->GetPlayerRecentStatChangef(PlayerStat::kDealWithAngel), SHOW_AS_PERCENTAGE);
+    }
+    else
+    {
+        if (!mem_reader->PlayingGreed())    // Non-split deal chance is irrelevant on Greed mode
+        {
+            base_hud_stats_menu.y -= (25.0f * GetHUDSizeMultiplier());
+            HUDStat dwd_stat(MHUDSTAT::kStat_DealDoorChance);
+            dwd_stat.Draw(base_hud_stats_menu, mem_reader->GetPlayerStatf(PlayerStat::kDealDoorChance),
+                          mem_reader->GetPlayerRecentStatChangef(PlayerStat::kDealDoorChance), SHOW_AS_PERCENTAGE);
+        }
+    }
 }
